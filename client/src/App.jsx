@@ -1,40 +1,44 @@
-import { useEffect, useState } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import ProtectedRoute from "./routes/ProtectedRoute";
+import { useAuth } from "./context/AuthContext.jsx";
 
-function App() {
-  const [apiMessage, setApiMessage] = useState("Connecting to backend...");
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    fetch("http://localhost:5002/api/health")
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("API request failed");
-        }
-
-        return response.json();
-      })
-      .then((data) => setApiMessage(data.message))
-      .catch(() => {
-        setError("Could not connect to the backend.");
-      });
-  }, []);
-
+function Dashboard(){
+  const {user, logout} = useAuth();
   return (
-    <main className="min-h-screen bg-slate-950 px-6 py-12 text-slate-100">
-      <div className="mx-auto max-w-5xl">
-        <h1 className="text-4xl font-bold tracking-tight text-white">Vigil</h1>
+    <main className="min-h-screen bg-slate-950 p-8 text-white">
+      <h1 className="text-3xl font-bold">Vigil Dashboard</h1>
 
-        <p className="mt-2 text-slate-400">
-          Uptime Monitoring & Incident Management
-        </p>
+      <p className="mt-4 text-slate-400">
+        Welcome, {user?.name}!
+      </p>
 
-        <section className="mt-10 max-w-lg rounded-xl border border-slate-800 bg-slate-900 p-6 shadow-lg">
-          <h2 className="text-lg font-semibold">Backend Status</h2>
-
-          <p className="mt-3 text-sm text-slate-300">{error || apiMessage}</p>
-        </section>
-      </div>
+      <button
+        onClick={() => logout()}
+        className="mt-6 rounded-lg bg-red-600 px-5 py-2 hover:bg-red-700"
+      >
+        Logout
+      </button>
     </main>
+
+  );
+}
+
+
+function App(){
+  return(
+    <BrowserRouter>
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path ="/register" element ={<Register/>}/>
+
+      <Route element= {<ProtectedRoute/>}>
+        <Route path="/dashboard" element={<Dashboard />} />
+      </Route>
+      <Route path="/" element= {<Navigate to ="/login"replace />}/>
+    </Routes>
+    </BrowserRouter>
   );
 }
 
