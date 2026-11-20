@@ -1,6 +1,7 @@
 import dns from "node:dns/promises";
 import ipaddr from "ipaddr.js";
 import Monitor from "../../models/Monitor.js";
+import  Mongoose  from "mongoose";
 import { lookup } from "node:dns";
 
 const validateMonitorUrl = async (value) => {
@@ -135,6 +136,120 @@ export const getMonitors = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Something went wrong while fetching monitors.",
+    });
+  }
+};
+
+
+
+export const updateMonitor = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Validate MongoDB ObjectId
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid monitor ID.",
+      });
+    }
+
+    const monitor = await Monitor.findOne({
+      _id: id,
+      user: req.user._id,
+    });
+
+    if (!monitor) {
+      return res.status(404).json({
+        success: false,
+        message: "Monitor not found.",
+      });
+    }
+
+    const { name, url, intervalMinutes, status } = req.body;
+
+    // Validate and update name
+    if (name !== undefined) {
+      if (
+        typeof name !== "string" ||
+        !name.trim() ||
+        name.trim().length > 100
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Monitor name must be between 1 and 100 characters.",
+        });
+      }
+
+      monitor.name = name.trim();
+    }
+
+    // Validate and update URL
+    if (url !== undefined) {
+      if (typeof url !== "string" || !url.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "A valid URL is required.",
+        });
+      }
+
+      try {
+        monitor.url = await validateMonitorUrl(url.trim());
+      } catch (error) {
+        return res.status(400).json({
+          success: false,
+          message: error.message,
+        });
+      }
+
+      // Reset monitoring results when the target URL changes
+      if (monitor.isModified("url")) {
+        monitor.currentStatus = "pending";
+        monitor.lastCheckedAt = null;
+        monitor.consecutiveFailures = 0;
+      }
+    }
+
+    // Validate and update interval
+    if (intervalMinutes !== undefined) {
+      if (
+        !Number.isInteger(intervalMinutes) ||
+        ![1, 5, 10, 15].includes(intervalMinutes)
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Interval must be 1, 5, 10, or 15 minutes.",
+        });
+      }
+
+      monitor.intervalMinutes = intervalMinutes;
+    }
+
+    // Pause or resume monitoring
+    if (status !== undefined) {
+      if (!["active", "paused"].includes(status)) {
+        return res.status(400).json({
+          success: false,
+          message: "Status must be active or paused.",
+        });
+      }
+
+      monitor.status = status;
+    }
+
+    await monitor.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Monitor updated successfully!",
+      monitor,
+    });
+  } catch (error) {
+    console.error("Update monitor error:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong while updating the monitor.",
     });
   }
 };
