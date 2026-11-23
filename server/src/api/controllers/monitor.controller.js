@@ -1,8 +1,7 @@
 import dns from "node:dns/promises";
 import ipaddr from "ipaddr.js";
 import Monitor from "../../models/Monitor.js";
-import  Mongoose  from "mongoose";
-import { lookup } from "node:dns";
+import  mongoose  from "mongoose";
 
 const validateMonitorUrl = async (value) => {
   let parsedUrl;
@@ -250,6 +249,43 @@ export const updateMonitor = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Something went wrong while updating the monitor.",
+    });
+  }
+};
+
+
+export const deleteMonitor = async (req,res) => {
+  try{
+    const {id} = req.params;
+
+    if(!mongoose.isValidObjectId(id)){
+      return res.status(400).json({
+        success : false,
+        message : "Invalid monitor ID",
+      });
+    }
+    const monitor = await Monitor.findOneAndDelete({
+      _id : id,
+      user : req.user._id,
+    });
+
+    if(!monitor){
+      return res.status(404).json({
+        success: false,
+        message : "Monitor not found.",
+      });
+    }
+
+    return res.status(200).json({
+      success : true,
+      message : "Monitor deleted successfully!",
+    });
+  }catch(error){
+    console.error("Delete monitor error : ",error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong while deleting the monitor."
     });
   }
 };
